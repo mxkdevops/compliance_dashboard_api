@@ -1,0 +1,42 @@
+🧩 Dashboard Comparison – “myCompliance.me” vs “FastAPI Compliance Dashboard”
+Category	myCompliance.me (Top Image)	FastAPI Compliance Dashboard (Bottom Image)
+Branding / Header	• Company logo (“mycompliance.me”)
+• Top navigation bar with blue background
+• User info (“Welcome demo.my”), help, bell icon, and settings gear
+• Compliance counters (Due / Not Compliant) with red/orange squares	• Simple header “Compliance Dashboard (FastAPI)”
+• Deep blue strip with summary metrics (Sites, Active Sites, Active PPM, Overdue, etc.)
+• No logo yet, minimal branding
+Color Scheme	• Primary blue for header/background
+• Green = Compliant, Amber = Due Soon, Red = Non-Compliant
+• White cards with green/orange/red top labels	• Primary deep blue header
+• Green border = OK, Amber = Due Soon, Red = Due/Overdue
+• White cards with color-coded border
+Layout	• Multi-row card grid per site (each site = left blue panel + horizontal strip of compliance areas like Electrical, Fire, etc.)
+• Each cell = individual compliance item (Electrical, Fire, etc.) with due status	• Masonry-style grid: one rectangular card per site summarising compliance status
+• Sidebar on right shows details/PPM of selected site
+Data Structure	• Site → multiple compliance categories displayed side by side in rows
+• Each category shows “Order issued”, “Works complete”, “Next due”, “Documents”	• Site summary card shows aggregate state (min next due, active PPM count, status color)
+• Detailed PPM list (Fire Alarms, Gas, Water, etc.) visible in right sidebar on click
+Interactivity	• “Sort By”, “Search”, date filters, “Go”, “My Report” buttons
+• Collapsible site panels (arrow down)
+• Possibly AJAX-based refresh	• Live filtering (search, dropdown filters auto-update)
+• Click any site → shows editable PPM list in sidebar
+• Real-time save via PATCH API
+Metrics / Summary Tiles	• Compliance counters (Due = orange, Not Compliant = red) in top bar	• Multiple metrics in header (Sites, Active Sites, Active PPM, Overdue, Due next 30d, Compliant vs Non-Compliant Sites)
+Navigation / Pages	• Likely multi-page (reports, documents, alerts, etc.)	• Single-page web app (FastAPI serving HTML + API) with an extra admin page for editing sites
+Visual Hierarchy	• Strong “traffic light” system (green OK, amber soon, red due)
+• Dense information per row	• Clean, modern, more white space, simpler color usage (border colors instead of full fills)
+Additional Icons	• Envelope/mail icon per site, “Documents” links, report icons	• Minimal icons; text-based interface; plan to add icons later (for documents, mail, etc.)
+Purpose / Focus	• Commercial compliance platform (focus on visual compliance per discipline for FM/contractors)	• In-house or prototype dashboard (focus on analytics, editing, automation, API integration)
+🎨 Color Pattern Summary
+State	myCompliance.me	FastAPI Dashboard	Meaning
+✅ OK / Compliant	Green background card	Green border	All up to date
+🟧 Due Soon	Orange background card	Amber border	Due within 30 days
+🟥 Due / Non-Compliant	Red background card	Red border	Overdue / not compliant
+⚪ Neutral / Unknown	White background	White card	No data / not applicable
+🧠 Overall
+	myCompliance.me	FastAPI Dashboard
+UX Style	Compact, information-dense enterprise interface	Clean, modern, API-first, editable interface
+Audience	Facility Managers, Compliance Officers	Developers, Data Analysts, System Admins
+Backend	Proprietary SaaS	Open-source (SQLite + FastAPI)
+Next Step	Add live API updates, document view, and modular cards per compliance family to visually match the myCompliance.me layout
