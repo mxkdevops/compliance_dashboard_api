@@ -1,0 +1,163 @@
+# 🧩 Compliance API Pack v1 — SQLite Database Explorer
+
+This guide explains how to open, explore, and verify data stored in **`ppm_local.db`** using the built-in **SQLite3** command-line tool.
+
+---
+
+## 🚀 1. Launch SQLite Shell
+
+```powershell
+sqlite3 .\ppm_local.db
+```
+### You should see a prompt:
+```
+SQLite version 3.xx.xx …
+Enter ".help" for usage hints.
+sqlite>
+```
+🧭 2. Basic Navigation
+
+Inside the sqlite> prompt:
+| Command           | Purpose                                            |
+| ----------------- | -------------------------------------------------- |
+| `.tables`         | List all database tables                           |
+| `.schema <table>` | Show table structure (columns, types, constraints) |
+| `.headers on`     | Turn on column headers                             |
+| `.mode column`    | Format output neatly                               |
+| `.exit`           | Quit the SQLite shell                              |
+
+```
+.headers on
+.mode column
+.tables
+.schema site
+```
+
+🏢 3. Explore Site Data
+-- First 10 sites
+SELECT site_id, name, uprn, site_code, status FROM site LIMIT 10;
+
+-- Count total sites
+SELECT COUNT(*) AS total_sites FROM site;
+
+-- Sites by status
+SELECT status, COUNT(*) FROM site GROUP BY status;
+
+-- Unknown or blank sites
+SELECT site_id, name, uprn, site_code, status
+FROM site
+WHERE status='Unknown' OR name IS NULL OR TRIM(name)=''
+LIMIT 20;
+
+🧾 4. Explore PPM Plan Data
+-- Preview first 10 instructions
+SELECT instruction, category_id, next_due_date FROM ppm_plan LIMIT 10;
+
+-- Count PPM records
+SELECT COUNT(*) AS total_ppm FROM ppm_plan;
+
+-- PPM count per site
+SELECT s.name, COUNT(p.ppm_plan_id) AS total
+FROM ppm_plan p
+JOIN site s ON s.site_id = p.site_id
+GROUP BY s.name
+ORDER BY total DESC
+LIMIT 15;
+
+-- PPM count per category
+SELECT c.name AS category, COUNT(p.ppm_plan_id) AS total
+FROM ppm_plan p
+JOIN category c ON c.category_id = p.category_id
+GROUP BY c.name
+ORDER BY total DESC;
+
+📅 5. Due-Date Analysis
+-- Overdue tasks (next_due_date < today)
+SELECT s.name, p.instruction, p.next_due_date
+FROM ppm_plan p
+JOIN site s ON s.site_id = p.site_id
+WHERE p.next_due_date < date('now')
+ORDER BY p.next_due_date ASC
+LIMIT 15;
+
+-- Due in next 30 days
+SELECT s.name, p.instruction, p.next_due_date
+FROM ppm_plan p
+JOIN site s ON s.site_id = p.site_id
+WHERE p.next_due_date BETWEEN date('now') AND date('now','+30 days')
+ORDER BY p.next_due_date ASC
+LIMIT 15;
+
+🔥 6. Sites with Most Instructions
+SELECT s.name, COUNT(p.ppm_plan_id) AS instruction_count
+FROM site s
+JOIN ppm_plan p ON s.site_id = p.site_id
+GROUP BY s.site_id
+ORDER BY instruction_count DESC
+LIMIT 15;
+
+⚡ 7. Frequency and Category Summaries
+-- Frequency summary
+SELECT COALESCE(frequency_months,0) AS freq_months,
+       COUNT(*) AS count,
+       MAX(next_due_date) AS latest_next_due
+FROM ppm_plan
+GROUP BY freq_months
+ORDER BY freq_months;
+
+-- PPM count by category
+SELECT c.name AS category, COUNT(*) AS total
+FROM ppm_plan p
+JOIN category c ON c.category_id = p.category_id
+GROUP BY c.name
+ORDER BY total DESC;
+
+🧠 8. Special Compliance Match Query
+
+Shows 15 sites having ≥ 10 matching instructions (from predefined compliance terms) and the latest due date.
+WITH matches AS (
+  SELECT p.site_id, p.instruction, p.next_due_date
+  FROM ppm_plan p
+  LEFT JOIN category c ON c.category_id=p.category_id
+  WHERE LOWER(p.instruction) IN (
+    'emergency lighting','5 yr electrical testing','5 year fixed wire test',
+    'fire alarm systems','fire alarms and associated equipment',
+    'fire risk assessment','fire risk assessment review','asbestos site survey',
+    'water hygiene risk assessments','descale & disinfect all shower heads',
+    'cold water storage tanks','thermostatic mixing valves','atmospheric gas burner',
+    'gas/oil burners','oil condensing boiler','fire doors','fire blankets',
+    'smoke curtains','sprinkler systems','gas extinguishing','evacuation chairs',
+    'lift maintenance','local exhaust ventilation','extract fans','ventilating fans',
+    'expansion vessels','radiators and vents','lightning conductors','loler',
+    'fixed wire test (eicr)','hsc acop l8:2013 whra','hsc acop l8:2013 showerheads',
+    'cold water storage tanks and cisterns','thermostatic mixing valves (tmvs)',
+    'condensing gas/oil burner','gas extinguishing systems',
+    'local exhaust ventilation (lev) systems','lightning conductors (hazardous areas)',
+    'loler inspection'
+  )
+  OR LOWER(c.name) IN (
+    'electrical','fire safety','asbestos',
+    'water hygiene','gas & boiler','lifts','ventilation & hvac'
+  )
+)
+SELECT s.name,
+       COUNT(DISTINCT m.instruction) AS matched_instructions,
+       MAX(m.next_due_date) AS latest_next_due_date
+FROM matches m
+JOIN site s ON s.site_id = m.site_id
+GROUP BY s.site_id
+HAVING COUNT(DISTINCT m.instruction) >= 10
+ORDER BY matched_instructions DESC,
+         latest_next_due_date DESC,
+         s.name
+LIMIT 15;
+
+💾 9. Export Results to CSV
+.headers on
+.mode csv
+.output sample_export.csv
+SELECT site_id, name, uprn, site_code, status FROM site LIMIT 50;
+.output stdout
+
+🧩 10. Exit SQLite
+.exit
