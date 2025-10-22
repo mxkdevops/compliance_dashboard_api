@@ -1,0 +1,135 @@
+🧩 Step 1 — Adding lifecycle columns to ppm_plan
+
+Goal: allow each PPM line (instruction) to have its own lifecycle — whether it’s active, retired, or temporarily paused.
+
+What happens:
+
+When you run:
+
+ALTER TABLE ppm_plan ADD COLUMN is_active INTEGER DEFAULT 1;
+ALTER TABLE ppm_plan ADD COLUMN retired_at TEXT;
+ALTER TABLE ppm_plan ADD COLUMN retired_reason TEXT;
+ALTER TABLE ppm_plan ADD COLUMN suspended_until TEXT;
+
+
+You’re modifying the table structure (not changing data yet).
+
+The result:
+
+Your ppm_plan table gains 4 new columns:
+
+Column	Type	Meaning	Default
+is_active	INTEGER	1 = active (show on dashboards); 0 = inactive	1
+retired_at	TEXT (date)	when the plan was permanently turned off	NULL
+retired_reason	TEXT	reason (e.g. “asset removed”, “not in contract”)	NULL
+suspended_until	TEXT (date)	temporarily paused until this date	NULL
+
+So now, instead of deleting rows when a PPM is obsolete, you can “soft-disable” them:
+
+You keep history (important for audit),
+
+Dashboards can simply hide them with WHERE is_active=1.
+
+Optional index:
+CREATE INDEX IF NOT EXISTS idx_ppm_active_due ON ppm_plan(is_active, next_due_date);
+
+
+This just makes filtering faster when your dashboard queries only active items.
+
+🧭 Step 2 — Updating (marking) individual PPMs
+
+Goal: turn off, suspend, or reactivate specific PPM lines.
+
+You’re not deleting anything — you’re updating the lifecycle fields.
+
+Example 1 — Permanently retire a PPM line
+UPDATE ppm_plan
+SET is_active = 0,
+    retired_at = date('now'),
+    retired_reason = 'System decommissioned'
+WHERE site_id = (SELECT site_id FROM site WHERE name = 'Sevenoaks Library')
+  AND instruction = 'Oil Condensing Boiler';
+
+What happens:
+
+The Oil Condensing Boiler task for Sevenoaks Library stays in the table.
+
+But it now has:
+
+is_active = 0 → hide it from dashboards
+
+retired_at = 2025-10-22
+
+retired_reason = 'System decommissioned'
+
+So you keep it for history, but it’s excluded from live compliance stats.
+
+Example 2 — Temporarily suspend a PPM
+UPDATE ppm_plan
+SET suspended_until = '2026-03-31'
+WHERE site_id = (SELECT site_id FROM site WHERE uprn = '07760340')
+  AND instruction LIKE '%Emergency Lighting%';
+
+What happens:
+
+The plan is still is_active=1 (i.e., still valid),
+
+But it’s temporarily paused until March 2026.
+
+When your dashboard filters for current activity, it will skip it if today < 2026-03-31.
+
+Example 3 — Reactivate a PPM
+UPDATE ppm_plan
+SET is_active = 1, retired_at = NULL, retired_reason = NULL
+WHERE ppm_plan_id = 1234;
+
+
+Restores a retired line to “live” again.
+
+🧠 Step 3 — Creating views for clean dashboards
+
+Goal: simplify your future queries — so you don’t have to write
+“WHERE is_active=1 AND (suspended_until IS NULL OR suspended_until <= today)” everywhere.
+
+You create views — think of them as virtual filtered tables.
+
+Example
+CREATE VIEW IF NOT EXISTS view_active_ppm AS
+SELECT *
+FROM ppm_plan
+WHERE is_active = 1
+  AND (suspended_until IS NULL OR suspended_until <= date('now'));
+
+
+This view automatically shows only:
+✅ Active
+✅ Not suspended (or suspension period already ended)
+
+Then you can create other derived views:
+CREATE VIEW IF NOT EXISTS view_active_due_30 AS
+SELECT *
+FROM view_active_ppm
+WHERE next_due_date BETWEEN date('now') AND date('now','+30 days');
+
+CREATE VIEW IF NOT EXISTS view_active_overdue AS
+SELECT *
+FROM view_active_ppm
+WHERE next_due_date < date('now');
+
+
+Now your dashboards (or Power BI / Streamlit / Flask API) can query like this:
+
+SELECT s.name, p.instruction, p.next_due_date
+FROM view_active_due_30 p
+JOIN site s ON s.site_id = p.site_id
+ORDER BY p.next_due_date ASC;
+
+
+✅ No need to remember lifecycle filters each time.
+✅ Automatically hides “not required” or “paused” PPMs.
+
+🧾 So in summary
+Step	Action	Effect
+1. ALTER TABLE	Add lifecycle columns (is_active, retired_at, etc.)	Makes PPMs individually controllable
+2. UPDATE	Mark specific PPMs as inactive or suspended	Keeps data but removes from dashboards
+3. CREATE VIEW	Build filtered virtual tables	Ensures dashboards only show valid data
