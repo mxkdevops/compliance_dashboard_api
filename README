@@ -1,1 +1,11 @@
+sqlite3 .\ppm_local.db
+$env:DB_PATH="$PWD\ppm_local.db"        
+uvicorn app:app --reload --port 8000
+python update_site_type.py --db .\ppm_local.db --csv .\K2_Concept_site_list.csv 
+python update_site_type.py --db .\ppm_local.db --csv .\K2_Concept_site_list.csv --dry-run --show-unmatched 20
+
+
+Sqlite command
+sqlite3 .\ppm_local.db
+SELECT instruction, category_id, next_due_date FROM ppm_plan LIMIT 10;
 
